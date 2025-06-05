@@ -10,12 +10,12 @@ git clone https://github.com/rileyjshaw/one-shot-sample-generator.git
 cd one-shot-sample-generator
 
 # Set up Python environment
-python -m venv venv
+python -m venv .venv
 source venv/bin/activate  # On Windows, use venv\Scripts\activate
 pip install -r requirements.txt
 
 # Run the script
-python main.py path/to/instrument.vst3  # On Mac, the plugin path is typically ~/Library/Audio/Plug-Ins/VST3/
+python main.py path/to/instrument.vst3  # On Mac, the plugin path is typically /Library/Audio/Plug-Ins/VST3/
 ```
 
 ## Options
