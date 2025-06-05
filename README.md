@@ -26,6 +26,7 @@ python main.py path/to/instrument.vst3  # On Mac, the plugin path is typically ~
 --max-duration, -t   Maximum duration in seconds (default: 12.0)
 --note-duration, -d  Duration in seconds for which the note should be held (defaults to full duration)
 --notes, -n          Comma-separated list of MIDI note numbers to render (default: all notes)
+--keep-silence, -s   Don’t trim silence at the start and end of samples
 --max-attempts, -a   Maximum number of attempts if output is silent (default: 3)
 ```
 

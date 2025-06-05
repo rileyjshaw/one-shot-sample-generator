@@ -13,23 +13,31 @@ def midi_note_to_name(note):
     name = NOTE_NAMES[note % 12]
     return f"{name}{octave}"
 
-def trim_silence_from_end(audio, threshold=1e-3, tail_duration=0.1, sample_rate=44100):
-    """Trim silence from the end an audio array."""
+def trim_silence(audio, threshold=1e-3, tail_duration=0.1, sample_rate=44100):
+    """Trim silence from both the start and end of an audio array."""
     if audio.ndim == 1:
         audio = np.expand_dims(audio, axis=1)
     elif audio.shape[0] == 2:
         audio = audio.T
-    
+
     abs_audio = np.max(np.abs(audio), axis=1)
     tail_samples = int(tail_duration * sample_rate)
-    
-    # Search backwards from the end for the first non-silent sample.
+
+    # Find the last non-silent sample from the end.
+    end_idx = len(abs_audio) - 1
     for i in range(len(abs_audio) - 1, -1, -1):
         if abs_audio[i] > threshold:
-            # Add tail_duration after the last non-silent sample.
-            return audio[:i + 1 + tail_samples]
-    
-    return audio[:tail_samples]
+            end_idx = i + 1
+            break
+
+    # Find the first non-silent sample from the start, but only up to end_idx.
+    start_idx = 0
+    for i in range(end_idx):
+        if abs_audio[i] > threshold:
+            start_idx = i
+            break
+
+    return audio[start_idx:end_idx + tail_samples]
 
 def main():
     parser = argparse.ArgumentParser(description="Render per-note audio samples from a local instrument plugin.")
@@ -39,6 +47,7 @@ def main():
     parser.add_argument("--max-duration", "-t", type=float, default=12.0, help="Maximum duration in seconds (default: 12.0)")
     parser.add_argument("--note-duration", "-d", type=float, default=None, help="Duration in seconds for which the note should be held (defaults to full duration)")
     parser.add_argument("--notes", "-n", type=str, default=None, help="Comma-separated list of MIDI note numbers to render (default: all notes)")
+    parser.add_argument("--keep-silence", "-s", action="store_true", help="Don’t trim silence at the start and end of samples")
     parser.add_argument("--max-attempts", "-a", type=int, default=3, help="Maximum number of attempts if output is silent (default: 3)")
     args = parser.parse_args()
 
@@ -48,6 +57,7 @@ def main():
     max_duration = args.max_duration
     note_duration = args.note_duration
     specific_notes = args.notes and [int(n.strip()) for n in args.notes.split(',')]
+    keep_silence = args.keep_silence
     max_attempts = max(1, args.max_attempts)
 
     if specific_notes is not None:
@@ -96,11 +106,12 @@ def main():
                 duration=max_duration,
                 sample_rate=sample_rate,
             )
-            trimmed_audio = trim_silence_from_end(rendered_audio)
+            if not keep_silence:
+                rendered_audio = trim_silence(rendered_audio)
 
             # Some plugins are tempermental and don’t print audio consistently.
             # Retry if a silent file is detected.
-            if np.max(np.abs(trimmed_audio)) > 1e-3:
+            if np.max(np.abs(rendered_audio)) > 1e-3:
                 break
             print(f"Attempt {attempt + 1}/{max_attempts}: Note {note} ({midi_note_to_name(note)}) was silent, retrying...")
             if attempt == max_attempts - 1:
@@ -108,7 +119,7 @@ def main():
 
         out_path = os.path.join(output_dir, f"{vst_name} - {note} {midi_note_to_name(note)}.wav")
         with AudioFile(out_path, "w", samplerate=sample_rate, num_channels=2) as f:
-            f.write(trimmed_audio)
+            f.write(rendered_audio)
         print(f"Saved {out_path}")
 
 if __name__ == "__main__":
